@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>大きい文字エディタ</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --border: #2e2e2e;
+    --accent: #f5c842;
+    --text: #f0ede6;
+    --muted: #666;
+    --font-size: 32px;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    overscroll-behavior: none;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  /* ── Header ── */
+  header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+
+  .app-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  /* ── Font Size Control ── */
+  .size-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    justify-content: flex-end;
+  }
+
+  .size-label {
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+    min-width: 38px;
+    text-align: right;
+  }
+
+  .size-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 36px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    max-width: 160px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    flex-shrink: 1;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px rgba(245,200,66,0.2);
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+  }
+
+  input[type="range"]:active::-webkit-slider-thumb {
+    box-shadow: 0 0 0 6px rgba(245,200,66,0.25);
+  }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tool-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .tool-btn:active {
+    background: var(--border);
+  }
+
+  .tool-btn.danger {
+    color: #e05a5a;
+    border-color: #3a1a1a;
+  }
+
+  .tool-btn.danger:active {
+    background: #1f0f0f;
+  }
+
+  .separator {
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+    margin: 0 4px;
+    flex-shrink: 0;
+  }
+
+  .char-count {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  /* ── Editor ── */
+  .editor-wrap {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px 18px 40px;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: var(--font-size);
+    line-height: 1.55;
+    letter-spacing: 0.02em;
+    caret-color: var(--accent);
+    -webkit-text-size-adjust: none;
+  }
+
+  textarea::placeholder {
+    color: #333;
+  }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--accent);
+    color: #111;
+    padding: 10px 20px;
+    border-radius: 24px;
+    font-size: 13px;
+    font-weight: 700;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    white-space: nowrap;
+    z-index: 999;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="app-title">TextBig</span>
+  <div class="size-control">
+    <span class="size-label">文字サイズ</span>
+    <input type="range" id="sizeSlider" min="16" max="80" value="32" step="2">
+    <span class="size-value" id="sizeDisplay">32px</span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <button class="tool-btn" onclick="copyText()">コピー</button>
+  <div class="separator"></div>
+  <button class="tool-btn danger" onclick="clearText()">クリア</button>
+  <span class="char-count" id="charCount">0 文字</span>
+</div>
+
+<div class="editor-wrap">
+  <textarea
+    id="editor"
+    placeholder="ここに入力してください…"
+    spellcheck="false"
+    autocorrect="off"
+    autocapitalize="off"
+  ></textarea>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const editor = document.getElementById('editor');
+  const slider = document.getElementById('sizeSlider');
+  const sizeDisplay = document.getElementById('sizeDisplay');
+  const charCount = document.getElementById('charCount');
+  const toast = document.getElementById('toast');
+
+  // Load saved state
+  const savedText = localStorage.getItem('textbig_text') || '';
+  const savedSize = parseInt(localStorage.getItem('textbig_size')) || 32;
+
+  editor.value = savedText;
+  slider.value = savedSize;
+  applySize(savedSize);
+  updateCharCount();
+
+  // Slider
+  slider.addEventListener('input', () => {
+    applySize(parseInt(slider.value));
+  });
+
+  function applySize(size) {
+    document.documentElement.style.setProperty('--font-size', size + 'px');
+    sizeDisplay.textContent = size + 'px';
+    localStorage.setItem('textbig_size', size);
+  }
+
+  // Editor
+  editor.addEventListener('input', () => {
+    updateCharCount();
+    localStorage.setItem('textbig_text', editor.value);
+  });
+
+  function updateCharCount() {
+    charCount.textContent = editor.value.length + ' 文字';
+  }
+
+  // Copy
+  async function copyText() {
+    if (!editor.value) return showToast('テキストがありません');
+    try {
+      await navigator.clipboard.writeText(editor.value);
+      showToast('コピーしました ✓');
+    } catch {
+      // fallback
+      editor.select();
+      document.execCommand('copy');
+      showToast('コピーしました ✓');
+    }
+  }
+
+  // Clear
+  function clearText() {
+    if (!editor.value) return;
+    if (confirm('テキストをクリアしますか？')) {
+      editor.value = '';
+      updateCharCount();
+      localStorage.removeItem('textbig_text');
+      showToast('クリアしました');
+    }
+  }
+
+  // Toast
+  let toastTimer;
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+  }
+</script>
+
+</body>
+</html>
